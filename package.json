@@ -1,0 +1,44 @@
+{
+  "name": "webnest",
+  "version": "0.1.33",
+  "private": true,
+  "description": "Your web apps, all in one place.",
+  "author": "WebNest <webnest@localhost>",
+  "homepage": "https://github.com/meghanni/webnest",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meghanni/webnest.git"
+  },
+  "desktopName": "webnest",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:linux": "electron-builder --linux deb",
+    "dist:appimage": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.webnest.desktop",
+    "productName": "WebNest",
+    "electronFuses": {
+      "enableCookieEncryption": true
+    },
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "linux": {
+      "icon": "build/icon.png",
+      "category": "Network",
+      "maintainer": "WebNest <webnest@localhost>",
+      "target": ["deb"],
+      "synopsis": "Your web apps, all in one place.",
+      "executableName": "webnest",
+      "syncDesktopName": true
+    }
+  }
+}
