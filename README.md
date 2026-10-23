@@ -37,6 +37,8 @@ Install the generated Debian package with your package installer or `sudo apt in
 - Renderer has no Node.js access; a narrow preload API mediates manager actions.
 - Encrypt local app configuration with Electron `safeStorage` when the desktop provides an OS credential store; encrypt Chromium cookies at rest using Electron's cookie-encryption fuse and OS cryptography.
 
-WebNest does not claim that banking sites are safe or fully compatible. Test sensitive sites carefully before relying on this prototype.
+## Disclaimer
+
+WebNest is an independent project and is not affiliated with or endorsed by the websites or services you add. Their names, logos, and content belong to their respective owners. WebNest is a desktop wrapper; each third-party service controls its own terms, availability, privacy practices, and security. WebNest is a prototype, with no guarantee of compatibility or suitability for sensitive activity. Do not assume it is safe for banking or other high-risk uses; assess the security and compatibility of your setup before relying on it.
 
 Configuration backups include names, HTTPS URLs, appearance, optional icons, and per-app permission choices. They never include cookies, passwords, session tokens, last-page URLs, or window sizes. On Linux, encryption strength depends on the desktop's available Secret Service or portal credential provider.
