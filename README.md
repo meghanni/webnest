@@ -4,6 +4,8 @@ Your web apps, all in one place.
 
 WebNest is an Electron desktop web-app manager, starting with Linux Mint. The first milestone focuses on a small, secure shell for creating website apps, opening each app in its own persistent session, configuring appearance, and backing up app configuration.
 
+![WebNest dashboard](docs/images/webnest-dashboard.png)
+
 ## Run
 
 Requires Node.js 22 or newer.
