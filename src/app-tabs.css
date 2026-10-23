@@ -1,0 +1,117 @@
+:root {
+  color-scheme: light dark;
+  font: 13px system-ui, sans-serif;
+  --bg: #f5f6f8;
+  --fg: #252632;
+  --muted: #767784;
+  --line: #dfe1e8;
+  --hover: #e9ebf1;
+  --active: #fff;
+  --accent: #705ef0;
+  --accent-soft: #705ef01c;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1d1e24;
+    --fg: #ececf2;
+    --muted: #a2a3b0;
+    --line: #34353e;
+    --hover: #30313a;
+    --active: #292a32;
+    --accent-soft: #a79aff26;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  height: 46px;
+  margin: 0;
+  padding: 5px 10px 0;
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+  background: var(--bg);
+  color: var(--fg);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+#tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  overflow: auto hidden;
+  scrollbar-width: none;
+}
+#tabs::-webkit-scrollbar { display: none; }
+.tab {
+  position: relative;
+  height: 40px;
+  max-width: 230px;
+  min-width: 112px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 9px 9px 0 0;
+  color: var(--muted);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.tab:hover { background: var(--hover); color: var(--fg); }
+.tab[data-active="true"] {
+  background: var(--active);
+  color: var(--fg);
+  box-shadow: 0 1px 0 var(--active), inset 0 0 0 1px var(--line);
+}
+.tab[data-active="true"]::after {
+  position: absolute;
+  right: 12px;
+  bottom: 0;
+  left: 12px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  content: "";
+}
+.tab-select {
+  height: 100%;
+  min-width: 0;
+  flex: 1;
+  padding: 0 0 0 13px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tab-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab-close {
+  width: 25px;
+  height: 25px;
+  flex: none;
+  margin: 0 5px 0 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: 17px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.tab-close:hover { background: var(--hover); color: var(--fg); }
+#new-tab {
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: 21px/1 system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+#new-tab:hover { background: var(--accent-soft); color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
