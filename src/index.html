@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'none'">
+  <title>WebNest</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main>
+      <header class="topbar">
+        <div class="brand-lockup"><div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div><div class="brand-copy"><strong>WebNest</strong><span>Your web apps, all in one place.</span></div></div>
+        <div class="header-actions">
+          <div class="theme-select"><span class="theme-icon" aria-hidden="true">◐</span><div class="theme-picker"><button id="theme-button" class="theme-trigger" type="button" aria-label="Appearance" aria-haspopup="listbox" aria-expanded="false" aria-controls="theme-options"><span id="theme-current">System appearance</span><span class="theme-chevron" aria-hidden="true"></span></button><div class="theme-options" id="theme-options" role="listbox" aria-label="Appearance" hidden><button type="button" class="theme-option" role="option" data-theme-value="system" aria-selected="true"><span>System appearance</span><span class="theme-check" aria-hidden="true">✓</span></button><button type="button" class="theme-option" role="option" data-theme-value="light" aria-selected="false"><span>Light appearance</span><span class="theme-check" aria-hidden="true">✓</span></button><button type="button" class="theme-option" role="option" data-theme-value="dark" aria-selected="false"><span>Dark appearance</span><span class="theme-check" aria-hidden="true">✓</span></button></div></div></div>
+          <button class="button primary" id="add-top"><span class="plus">＋</span> Add an app</button>
+        </div>
+      </header>
+      <section class="toolbar">
+        <div class="section-title"><div><h2>All apps</h2><span id="subheading">A calm home for the places you visit online.</span></div><span class="app-count"><b id="app-count">0</b> apps</span></div>
+      </section>
+      <section class="apps-grid" id="apps" aria-live="polite"></section>
+      <section class="empty" id="empty">
+        <div class="empty-art"><div class="orbit orbit-a"></div><div class="orbit orbit-b"></div><div class="mini-window"><div class="mini-dots"><i></i><i></i><i></i></div><div class="mini-lines"><b></b><b></b><b></b></div></div><div class="spark spark-a">✦</div><div class="spark spark-b">✧</div></div>
+        <h2>A little space for your favourites.</h2><p>Add a website and it’ll have its own window and private session, ready when you are.</p>
+        <button class="button primary" id="add-empty"><span class="plus">＋</span> Add your first app</button>
+      </section>
+      <footer class="footer"><span><span class="status-dot"></span> Your apps stay on this device</span><div><button class="text-button" id="import">Import setup</button><span class="footer-sep">·</span><button class="text-button" id="export">Export setup</button></div></footer>
+    </main>
+  <dialog id="add-dialog">
+    <form id="add-form">
+      <div class="dialog-top"><div class="dialog-symbol" id="dialog-symbol">＋</div><button type="button" class="close" data-close aria-label="Close">×</button></div>
+      <div class="eyebrow">MAKE YOURSELF AT HOME</div><h2 id="dialog-title">Add a web app</h2><p class="dialog-copy" id="dialog-copy">Give a website a name. WebNest will keep its sign-in and browsing data in its own session.</p>
+      <label class="field-label" for="app-name">App name</label><input id="app-name" name="name" placeholder="e.g. Gmail" maxlength="64" required autocomplete="off">
+      <label class="field-label" for="app-url">Website address</label><input id="app-url" name="url" type="url" placeholder="https://mail.google.com" required autocomplete="url">
+      <label class="app-tabs-setting"><input id="app-tabs" name="openLinksInTabs" type="checkbox"><span><b>Open internal links in new tabs</b><small>Use tabs for popups from this app. Turn this off to keep them in separate windows, such as print windows.</small></span></label>
+      <fieldset class="permission-settings"><legend>Website permissions</legend><p>Allow requests from this app’s website. All permissions start off.</p><div class="permission-options"><label><input name="allowCamera" type="checkbox"><span>Camera</span></label><label><input name="allowMicrophone" type="checkbox"><span>Microphone</span></label><label><input name="allowNotifications" type="checkbox"><span>Notifications</span></label></div></fieldset>
+      <label class="field-label" for="app-icon">App icon <span class="optional">Optional · upload or fetch from the website</span></label><input id="app-icon" type="file" accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon,.ico">
+      <div class="icon-tools"><button type="button" class="button secondary" id="fetch-icon">Fetch from website</button><span id="icon-status" role="status"></span></div>
+      <div class="icon-preview" id="icon-preview" hidden><img id="icon-preview-image" alt="Selected app icon"><span id="icon-filename"></span><button type="button" id="clear-icon" aria-label="Remove selected icon">×</button></div>
+      <div class="secure-note"><span>⌑</span><div><b>Private by design</b><small>Each app has its own isolated browser session.</small></div></div>
+      <p class="form-error" id="form-error" role="alert"></p>
+      <div class="dialog-actions"><button type="button" class="button secondary" data-close>Cancel</button><button class="button primary" id="submit-app" type="submit">Create app <span>→</span></button></div>
+    </form>
+  </dialog>
+  <dialog id="confirm-dialog"><div class="confirm-content"><button class="close" data-close aria-label="Close">×</button><div class="dialog-symbol delete-symbol">⌫</div><h2>Remove this app?</h2><p class="dialog-copy">It will disappear from WebNest. Its saved website session stays on this device.</p><div class="dialog-actions"><button class="button secondary" data-close>Keep it</button><button class="button danger" id="confirm-remove">Remove app</button></div></div></dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>
