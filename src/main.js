@@ -179,6 +179,7 @@ function safeApp(item) {
     id: /^[a-f0-9-]{36}$/i.test(item.id || '') ? item.id : crypto.randomUUID(),
     name, url, icon, windowSize, keepInTray: item.keepInTray === true,
     openLinksInTabs: typeof item.openLinksInTabs === 'boolean' ? item.openLinksInTabs : isLegacyTabbedAppUrl(url),
+    openExternalLinksInBrowser: item.openExternalLinksInBrowser === true,
     allowCamera: item.allowCamera === true,
     allowMicrophone: item.allowMicrophone === true,
     allowNotifications: item.allowNotifications === true,
@@ -742,7 +743,14 @@ const MULTI_LABEL_PUBLIC_SUFFIXES = new Set([
 
 const GOOGLE_DOMAIN_FAMILY = new Set([
   'google', 'googleusercontent', 'googleapis', 'gstatic', 'googlevideo',
-  'youtube', 'youtube-nocookie', 'youtu'
+  'youtube', 'youtube-nocookie', 'youtu', 'gmail', 'drive', 'docs', 'sheets', 'slides',
+  'forms', 'calendar', 'photos', 'maps', 'play', 'meet', 'keep', 'contacts',
+  'chat', 'groups', 'sites', 'blogger', 'doubleclick', 'googlesyndication',
+  'googleadservices', 'recaptcha', 'gvt1', 'gvt2'
+]);
+
+const FACEBOOK_DOMAIN_FAMILY = new Set([
+  'facebook', 'fb', 'messenger', 'fbcdn'
 ]);
 
 function registrableDomainLabel(hostname) {
@@ -754,11 +762,21 @@ function registrableDomainLabel(hostname) {
 
 function isInternalAppUrl(url, appUrl) {
   try {
-    const targetLabel = registrableDomainLabel(new URL(url).hostname);
-    const appLabel = registrableDomainLabel(new URL(appUrl).hostname);
+    const targetUrl = new URL(url);
+    const appUrlObj = new URL(appUrl);
+    const targetHostname = targetUrl.hostname.toLowerCase().replace(/\.$/, '');
+    const appHostname = appUrlObj.hostname.toLowerCase().replace(/\.$/, '');
+    // Explicitly treat all google family as internal to each other
+    const isGoogleAny = (h) => /google\.com$|google\.co\.|\.google\.|googleapis|googleusercontent|gstatic|youtube\.com|youtu\.be|youtube-nocookie|doubleclick|googlesyndication|googleadservices|gmail\.com|drive\.google|docs\.google|sheets\.google|slides\.google|forms\.google|calendar\.google|meet\.google|photos\.google|maps\.google/i.test(h) || h.includes('google');
+    if (isGoogleAny(targetHostname) && isGoogleAny(appHostname)) return true;
+    const targetLabel = registrableDomainLabel(targetHostname);
+    const appLabel = registrableDomainLabel(appHostname);
     if (!targetLabel || !appLabel) return false;
     if (targetLabel === appLabel) return true;
-    return GOOGLE_DOMAIN_FAMILY.has(targetLabel) && GOOGLE_DOMAIN_FAMILY.has(appLabel);
+    if (GOOGLE_DOMAIN_FAMILY.has(targetLabel) && GOOGLE_DOMAIN_FAMILY.has(appLabel)) return true;
+    if (FACEBOOK_DOMAIN_FAMILY.has(targetLabel) && FACEBOOK_DOMAIN_FAMILY.has(appLabel)) return true;
+    if (targetLabel && appLabel && targetLabel === appLabel) return true;
+    return false;
   } catch { return false; }
 }
 
@@ -815,7 +833,6 @@ function openTabbedApp(item, partition, win) {
     nodeIntegration: false,
     webSecurity: true
   } });
-  win.contentView.addChildView(hostView);
   const tabState = { id: item.id, item, win, hostView, tabs: [], activeId: '' };
   tabbedAppWindows.set(item.id, tabState);
   const stripHeight = 46;
@@ -839,9 +856,14 @@ function openTabbedApp(item, partition, win) {
     const tab = tabState.tabs.find((candidate) => candidate.id === tabId);
     if (!tab || win.isDestroyed()) return false;
     const previous = tabState.tabs.find((candidate) => candidate.id === tabState.activeId);
-    if (previous && previous !== tab) win.contentView.removeChildView(previous.view);
+    if (previous && previous !== tab) {
+      try { win.contentView.removeChildView(previous.view); } catch {}
+    }
     tabState.activeId = tab.id;
+    try { win.contentView.removeChildView(tab.view); } catch {}
     win.contentView.addChildView(tab.view);
+    try { win.contentView.removeChildView(tabState.hostView); } catch {}
+    win.contentView.addChildView(tabState.hostView);
     setViewBounds();
     win.setTitle(tab.title && tab.title !== item.name ? `${tab.title} — ${item.name}` : item.name);
     publishTabs();
@@ -867,7 +889,10 @@ function openTabbedApp(item, partition, win) {
     configureTabbedAppContents(tab, tabState, { item, createTab, activateTab, publishTabs });
     view.webContents.loadURL(safeUrl).catch((error) => console.error(`Could not open ${item.name} tab:`, error));
     if (activate) activateTab(tab.id);
-    else publishTabs();
+    else {
+      try { win.contentView.addChildView(view); setViewBounds(); } catch {}
+      publishTabs();
+    }
     return tab.id;
   };
   const closeTab = (tabId) => {
@@ -900,6 +925,17 @@ function openTabbedApp(item, partition, win) {
   tabState.closeTab = closeTab;
   tabState.persistTabs = persistTabs;
   hostView.webContents.on('did-finish-load', publishTabs);
+  hostView.webContents.on('dom-ready', () => {
+    try { win.contentView.removeChildView(hostView); win.contentView.addChildView(hostView); } catch {}
+    for (const tab of tabState.tabs) { try { win.contentView.removeChildView(tab.view); win.contentView.addChildView(tab.view); } catch {} }
+    try { win.contentView.removeChildView(hostView); win.contentView.addChildView(hostView); } catch {}
+    setViewBounds();
+  });
+  win.webContents?.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseDown') {
+      // crude hit test - just ensure host stays on top
+    }
+  });
   hostView.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || !(input.control || input.meta)) return;
     const activeIndex = tabState.tabs.findIndex((tab) => tab.id === tabState.activeId);
@@ -913,18 +949,44 @@ function openTabbedApp(item, partition, win) {
       activateTab(tabState.tabs[next].id);
     }
   });
-  win.on('resize', setViewBounds);
+  win.on('resize', () => { setViewBounds(); try { win.contentView.removeChildView(hostView); win.contentView.addChildView(hostView); } catch {} });
+  const handleClick = (event) => {
+    // This won't catch clicks to child views directly, but worth trying
+  };
   win.on('closed', () => {
     appWindows.delete(item.id);
     tabbedAppWindows.delete(item.id);
     if (!hostView.webContents.isDestroyed()) hostView.webContents.close();
     for (const tab of tabState.tabs) if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
   });
-  const resumeUrls = tabState.item.tabUrls.length ? tabState.item.tabUrls : [item.lastUrl || item.url];
+  win.contentView.addChildView(hostView);
+  const shouldResume = item.keepInTray;
+  const resumeUrls = shouldResume && tabState.item.tabUrls && tabState.item.tabUrls.length ? tabState.item.tabUrls : (shouldResume ? [item.lastUrl || item.url] : [item.url]);
   for (const url of resumeUrls) createTab(url, { activate: false });
-  const initialTab = tabState.tabs[Math.min(item.activeTabIndex || 0, tabState.tabs.length - 1)];
-  if (initialTab) activateTab(initialTab.id);
-  persistTabs();
+  if (shouldResume) {
+    const initialTab = tabState.tabs[Math.min(item.activeTabIndex || 0, tabState.tabs.length - 1)];
+    if (initialTab) {
+      const tab = initialTab;
+      try { win.contentView.removeChildView(tab.view); } catch {}
+      win.contentView.addChildView(tab.view);
+      tabState.activeId = tab.id;
+    }
+  } else if (tabState.tabs[0]) {
+    const tab = tabState.tabs[0];
+    try { win.contentView.removeChildView(tab.view); } catch {}
+    win.contentView.addChildView(tab.view);
+    tabState.activeId = tab.id;
+  }
+  for (const tab of tabState.tabs) {
+    try { win.contentView.removeChildView(tab.view); } catch {}
+    win.contentView.addChildView(tab.view);
+  }
+  try { win.contentView.removeChildView(hostView); win.contentView.addChildView(hostView); } catch {}
+  setViewBounds();
+  if (shouldResume) persistTabs();
+  else {
+    try { updateAppState(item.id, { tabUrls: [], activeTabIndex: 0, lastUrl: '' }); } catch {}
+  }
   hostView.webContents.loadFile(path.join(__dirname, 'app-tabs.html')).catch((error) => console.error('Could not load app tab bar:', error));
 }
 
@@ -934,24 +996,66 @@ function configureTabbedAppContents(tab, tabState, context) {
   const session = contents.session;
   contents.setUserAgent(contents.getUserAgent().replace(/\sElectron\/[^\s]+/i, ''));
   contents.setWindowOpenHandler(({ url }) => {
-    if (isInternalAppUrl(url, item.url)) createTab(url);
-    else {
+    if (isInternalAppUrl(url, item.url)) {
+      createTab(url);
+      return { action: 'deny' };
+    }
+    // Always treat Google family as internal regardless of setting
+    try {
+      const u = new URL(url);
+      const iu = new URL(item.url);
+      const isG = /google|youtube|gstatic|googleapis|googleusercontent/i.test(u.hostname);
+      const isIG = /google|youtube|gstatic|googleapis|googleusercontent/i.test(iu.hostname);
+      if (isG && isIG) {
+        createTab(url);
+        return { action: 'deny' };
+      }
+    } catch {}
+    if (item.openExternalLinksInBrowser) {
       const safeUrl = validateUrl(url);
-      if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      if (safeUrl) {
+        shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      }
+      return { action: 'deny' };
+    }
+    const safeUrl = validateUrl(url);
+    if (safeUrl) {
+      try { contents.loadURL(safeUrl); } catch (error) { console.error('Could not open external link:', error); }
     }
     return { action: 'deny' };
   });
   contents.on('will-navigate', (event, url) => {
-    if (url === 'about:blank' || isInternalAppUrl(url, item.url)) return;
+    if (url === 'about:blank') return;
+    if (isInternalAppUrl(url, item.url)) return;
     event.preventDefault();
-    const safeUrl = validateUrl(url);
-    if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
-  });
-  contents.on('will-redirect', (event, url) => {
-    if (!isInternalAppUrl(url, item.url)) {
-      event.preventDefault();
+    if (item.openExternalLinksInBrowser) {
       const safeUrl = validateUrl(url);
       if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      return;
+    }
+    const safeUrl = validateUrl(url);
+    if (safeUrl) {
+      try { contents.loadURL(safeUrl); } catch (error) { console.error('Could not open external link:', error); }
+    }
+  });
+  contents.on('will-redirect', (event, url) => {
+    if (isInternalAppUrl(url, item.url)) return;
+    try {
+      const u = new URL(url);
+      const iu = new URL(item.url);
+      if (/google|youtube|gstatic|googleapis|googleusercontent/i.test(u.hostname) && /google|youtube|gstatic|googleapis|googleusercontent/i.test(iu.hostname)) {
+        return;
+      }
+    } catch {}
+    event.preventDefault();
+    if (item.openExternalLinksInBrowser) {
+      const safeUrl = validateUrl(url);
+      if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      return;
+    }
+    const safeUrl = validateUrl(url);
+    if (safeUrl) {
+      try { contents.loadURL(safeUrl); } catch (error) { console.error('Could not open external link:', error); }
     }
   });
   contents.on('did-navigate', (_event, url) => {
@@ -968,6 +1072,30 @@ function configureTabbedAppContents(tab, tabState, context) {
       tab.url = safeUrl;
       if (tab.id === tabState.activeId) updateAppState(item.id, { lastUrl: safeUrl });
       tabState.persistTabs?.();
+    }
+  });
+  contents.on('before-input-event', (event, input) => {
+    if (input.type === 'mouseDown' && input.y <= 46) {
+      try {
+        event.preventDefault();
+        const x = input.x || 0;
+        let acc = 0;
+        for (let i = 0; i < tabState.tabs.length; i++) {
+          const w = 150;
+          if (x >= acc && x < acc + w - 30) {
+            tabState.activateTab(tabState.tabs[i].id);
+            return;
+          }
+          if (x >= acc + w - 30 && x < acc + w) {
+            tabState.closeTab(tabState.tabs[i].id);
+            return;
+          }
+          acc += w;
+        }
+        if (x > acc && x < acc + 40) {
+          tabState.createTab(tabState.item.url);
+        }
+      } catch (e) { console.log('err', e); }
     }
   });
   contents.on('page-title-updated', (_event, title) => {
@@ -1068,8 +1196,16 @@ function openApp(id) {
         win.hide();
         refreshAppTray(currentAppSettings, win);
       } else if (!quitting) {
+        const current = config.apps.find((candidate) => candidate.id === id);
+        if (current) {
+          current.tabUrls = [];
+          current.activeTabIndex = 0;
+          current.lastUrl = '';
+          if (tabbedAppWindows.get(id)) tabbedAppWindows.delete(id);
+        }
+        try { clearTimeout(configSaveTimer); saveConfig(); } catch {}
         event.preventDefault();
-        quitAppFully();
+        quitAppFully({ saveState: false });
       }
     });
     return;
@@ -1114,19 +1250,58 @@ function openApp(id) {
           }
         };
       }
+      try {
+        const u = new URL(url);
+        const iu = new URL(item.url);
+        if (/google|youtube|gstatic|googleapis|googleusercontent/i.test(u.hostname) && /google|youtube|gstatic|googleapis|googleusercontent/i.test(iu.hostname)) {
+          if (isAppDomainFamily(url) || true) {
+            if (item.openLinksInTabs) { /* let normal flow handle */ }
+            contents.loadURL(url).catch((error) => console.error(`Could not open related ${item.name} link:`, error));
+            return { action: 'deny' };
+          }
+        }
+      } catch {}
       if (isAppDomainFamily(url)) {
+        if (item.openExternalLinksInBrowser) {
+          const safeUrl = validateUrl(url);
+          if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+          return { action: 'deny' };
+        }
         contents.loadURL(url).catch((error) => console.error(`Could not open related ${item.name} link:`, error));
         return { action: 'deny' };
       }
+      if (item.openExternalLinksInBrowser) {
+        const safeUrl = validateUrl(url);
+        if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+        return { action: 'deny' };
+      }
       const safeUrl = validateUrl(url);
-      if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      if (safeUrl) {
+        try { contents.loadURL(safeUrl); } catch (error) { console.error('Could not open external link:', error); }
+      }
       return { action: 'deny' };
     });
     contents.on('will-navigate', (event, url) => {
-      if (url === 'about:blank' || isAppDomainFamily(url)) return;
+      if (url === 'about:blank') return;
+      try {
+        const u = new URL(url);
+        const iu = new URL(item.url);
+        if (/google|youtube|gstatic|googleapis|googleusercontent/i.test(u.hostname) && /google|youtube|gstatic|googleapis|googleusercontent/i.test(iu.hostname)) {
+          return;
+        }
+      } catch {}
+      if (isAppDomainFamily(url)) return;
+      if (item.openExternalLinksInBrowser) {
+        event.preventDefault();
+        const safeUrl = validateUrl(url);
+        if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+        return;
+      }
       event.preventDefault();
       const safeUrl = validateUrl(url);
-      if (safeUrl) shell.openExternal(safeUrl).catch((error) => console.error('Could not open external link:', error));
+      if (safeUrl) {
+        try { contents.loadURL(safeUrl); } catch (error) { console.error('Could not open external link:', error); }
+      }
     });
   };
   configurePopupHandling(win.webContents);
@@ -1180,14 +1355,22 @@ function openApp(id) {
       win.hide();
       refreshAppTray(currentAppSettings, win);
     } else if (!quitting) {
+      const current = config.apps.find((candidate) => candidate.id === id);
+      if (current) {
+        current.tabUrls = [];
+        current.activeTabIndex = 0;
+        current.lastUrl = '';
+        if (tabbedAppWindows.get(id)) tabbedAppWindows.delete(id);
+      }
+      try { clearTimeout(configSaveTimer); saveConfig(); } catch {}
       event.preventDefault();
-      quitAppFully();
+      quitAppFully({ saveState: false });
     }
   });
   const appSession = win.webContents.session;
   configureAppPermissions(appSession, item.id);
   win.on('closed', () => appWindows.delete(id));
-  win.loadURL(item.lastUrl || item.url).catch((error) => console.error(`Could not open ${item.name}:`, error));
+  win.loadURL(item.keepInTray ? (item.lastUrl || item.url) : item.url).catch((error) => console.error(`Could not open ${item.name}:`, error));
 }
 
 function showAppWindow(win) {
@@ -1320,8 +1503,12 @@ function appTabStateFromSender(event) {
   ) || null;
 }
 ipcMain.handle('app-tab-select', (event, tabId) => {
+  console.log('app-tab-select called', tabId);
   const state = appTabStateFromSender(event);
-  return Boolean(state && state.tabs.activateTab(tabId));
+  console.log('state found:', !!state);
+  const res = Boolean(state && state.tabs.activateTab(tabId));
+  console.log('result:', res);
+  return res;
 });
 ipcMain.handle('app-tab-close', (event, tabId) => {
   const state = appTabStateFromSender(event);

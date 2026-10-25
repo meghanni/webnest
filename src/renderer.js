@@ -137,6 +137,7 @@ function openEdit(item) {
   form.elements.name.value = item.name;
   form.elements.url.value = item.url;
   form.elements.openLinksInTabs.checked = item.openLinksInTabs === true;
+  if (form.elements.openExternalLinksInBrowser) form.elements.openExternalLinksInBrowser.checked = item.openExternalLinksInBrowser === true;
   form.elements.allowCamera.checked = item.allowCamera === true;
   form.elements.allowMicrophone.checked = item.allowMicrophone === true;
   form.elements.allowNotifications.checked = item.allowNotifications === true;
@@ -224,6 +225,7 @@ form.addEventListener('submit', async (event) => {
       url: form.elements.url.value,
       icon: selectedIcon,
       openLinksInTabs: form.elements.openLinksInTabs.checked,
+      openExternalLinksInBrowser: form.elements.openExternalLinksInBrowser ? form.elements.openExternalLinksInBrowser.checked : false,
       allowCamera: form.elements.allowCamera.checked,
       allowMicrophone: form.elements.allowMicrophone.checked,
       allowNotifications: form.elements.allowNotifications.checked

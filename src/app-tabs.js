@@ -27,7 +27,9 @@ function render(state) {
       window.webnestTabs.close(tab.id);
     });
     select.append(title);
-    select.addEventListener('click', () => window.webnestTabs.select(tab.id));
+    select.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); console.log('tab mousedown', tab.id); window.webnestTabs.select(tab.id); });
+    select.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); console.log('tab click', tab.id); window.webnestTabs.select(tab.id); });
+    close.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); window.webnestTabs.close(tab.id); });
     item.append(select, close);
     tabsElement.append(item);
   }
