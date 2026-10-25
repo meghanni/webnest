@@ -136,7 +136,6 @@ function openEdit(item) {
   clearIcon();
   form.elements.name.value = item.name;
   form.elements.url.value = item.url;
-  form.elements.openLinksInTabs.checked = item.openLinksInTabs === true;
   if (form.elements.openExternalLinksInBrowser) form.elements.openExternalLinksInBrowser.checked = item.openExternalLinksInBrowser === true;
   form.elements.allowCamera.checked = item.allowCamera === true;
   form.elements.allowMicrophone.checked = item.allowMicrophone === true;
@@ -224,7 +223,6 @@ form.addEventListener('submit', async (event) => {
       name: form.elements.name.value,
       url: form.elements.url.value,
       icon: selectedIcon,
-      openLinksInTabs: form.elements.openLinksInTabs.checked,
       openExternalLinksInBrowser: form.elements.openExternalLinksInBrowser ? form.elements.openExternalLinksInBrowser.checked : false,
       allowCamera: form.elements.allowCamera.checked,
       allowMicrophone: form.elements.allowMicrophone.checked,

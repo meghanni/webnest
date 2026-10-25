@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BaseWindow, WebContentsView, Menu, Tray, ipcMain, dialog, nativeTheme, shell, nativeImage, safeStorage, screen, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog, nativeTheme, shell, nativeImage, safeStorage, screen, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -178,14 +178,13 @@ function safeApp(item) {
   return {
     id: /^[a-f0-9-]{36}$/i.test(item.id || '') ? item.id : crypto.randomUUID(),
     name, url, icon, windowSize, keepInTray: item.keepInTray === true,
-    openLinksInTabs: typeof item.openLinksInTabs === 'boolean' ? item.openLinksInTabs : isLegacyTabbedAppUrl(url),
     openExternalLinksInBrowser: item.openExternalLinksInBrowser === true,
     allowCamera: item.allowCamera === true,
     allowMicrophone: item.allowMicrophone === true,
     allowNotifications: item.allowNotifications === true,
     lastUrl: safeResumeUrl(url, item.lastUrl),
-    tabUrls: Array.isArray(item.tabUrls) ? item.tabUrls.map((candidate) => safeTabResumeUrl(url, candidate)).filter(Boolean).slice(0, 20) : [],
-    activeTabIndex: Number.isInteger(item.activeTabIndex) ? Math.max(0, Math.min(19, item.activeTabIndex)) : 0
+    tabUrls: [],
+    activeTabIndex: 0
   };
 }
 
@@ -997,7 +996,7 @@ function configureTabbedAppContents(tab, tabState, context) {
   contents.setUserAgent(contents.getUserAgent().replace(/\sElectron\/[^\s]+/i, ''));
   contents.setWindowOpenHandler(({ url }) => {
     if (isInternalAppUrl(url, item.url)) {
-      createTab(url);
+      try { contents.loadURL(url); } catch (error) { console.error(`Could not open related ${item.name} link:`, error); }
       return { action: 'deny' };
     }
     // Always treat Google family as internal regardless of setting
@@ -1150,7 +1149,6 @@ function openApp(id) {
     catch (error) { console.error(`Could not prepare the ${item.name} app icon:`, error); }
   }
   const partition = `persist:webnest-${id}`;
-  const useTabs = item.openLinksInTabs === true;
   const windowOptions = {
     width: item.windowSize?.width || 1100,
     height: item.windowSize?.height || 760,
@@ -1160,9 +1158,7 @@ function openApp(id) {
     autoHideMenuBar: true,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#111318' : '#f5f6f8'
   };
-  const win = useTabs
-    ? new BaseWindow(windowOptions)
-    : new BrowserWindow({
+  const win = new BrowserWindow({
       ...windowOptions,
     webPreferences: {
       partition,
@@ -1175,41 +1171,6 @@ function openApp(id) {
     }
     });
   appWindows.set(id, win);
-  if (useTabs) {
-    if (item.keepInTray) refreshAppTray(item, win);
-    openTabbedApp(item, partition, win);
-    const rememberSize = () => {
-      const { width, height } = win.getBounds();
-      updateAppState(id, { windowSize: { width, height } });
-    };
-    win.on('resize', rememberSize);
-    win.on('close', (event) => {
-      const currentAppSettings = config.apps.find((candidate) => candidate.id === id) || item;
-      if (!quitting && currentAppSettings.keepInTray) {
-        rememberSize();
-        tabbedAppWindows.get(id)?.persistTabs();
-        const currentUrl = safeTabResumeUrl(item.url, appWebContents(id, win)?.getURL());
-        if (currentUrl) updateAppState(id, { lastUrl: currentUrl });
-        clearTimeout(configSaveTimer);
-        saveConfig().catch((error) => console.error('Could not save WebNest app state:', error));
-        event.preventDefault();
-        win.hide();
-        refreshAppTray(currentAppSettings, win);
-      } else if (!quitting) {
-        const current = config.apps.find((candidate) => candidate.id === id);
-        if (current) {
-          current.tabUrls = [];
-          current.activeTabIndex = 0;
-          current.lastUrl = '';
-          if (tabbedAppWindows.get(id)) tabbedAppWindows.delete(id);
-        }
-        try { clearTimeout(configSaveTimer); saveConfig(); } catch {}
-        event.preventDefault();
-        quitAppFully({ saveState: false });
-      }
-    });
-    return;
-  }
   // WhatsApp compatibility needs matching HTTP headers and page-visible UA
   // data as well as the traditional User-Agent string.
   const isWhatsApp = (() => {
@@ -1355,16 +1316,8 @@ function openApp(id) {
       win.hide();
       refreshAppTray(currentAppSettings, win);
     } else if (!quitting) {
-      const current = config.apps.find((candidate) => candidate.id === id);
-      if (current) {
-        current.tabUrls = [];
-        current.activeTabIndex = 0;
-        current.lastUrl = '';
-        if (tabbedAppWindows.get(id)) tabbedAppWindows.delete(id);
-      }
-      try { clearTimeout(configSaveTimer); saveConfig(); } catch {}
       event.preventDefault();
-      quitAppFully({ saveState: false });
+      quitAppFully();
     }
   });
   const appSession = win.webContents.session;
