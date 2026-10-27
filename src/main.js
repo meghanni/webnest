@@ -231,11 +231,34 @@ function normalizeConfig(value) {
   return { version: 1, theme: value.theme, apps };
 }
 
+function isLocalHostname(hostname) {
+  const host = String(hostname || '').toLowerCase();
+  if (!host) return false;
+  if (host === 'localhost' || host === '::1') return true;
+  if (host.startsWith('127.')) return true;
+  // IPv4 private ranges
+  if (/^10\./.test(host)) return true;
+  if (/^192\.168\./.test(host)) return true;
+  if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)) return true;
+  // Link-local
+  if (host.startsWith('169.254.')) return true;
+  // IPv6 link-local/unique-local/loopback
+  if (host.startsWith('fe80:') || host.startsWith('fc00:') || host.startsWith('fd00:')) return true;
+  // .local mDNS
+  if (host.endsWith('.local')) return true;
+  return false;
+}
+
 function validateUrl(value) {
   try {
     const url = new URL(String(value || '').trim());
-    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) return null;
-    return url.toString();
+    if (url.username || url.password) return null;
+    if (!url.hostname) return null;
+    const isHttps = url.protocol === 'https:';
+    const isHttp = url.protocol === 'http:';
+    if (isHttps) return url.toString();
+    if (isHttp && isLocalHostname(url.hostname)) return url.toString();
+    return null;
   } catch { return null; }
 }
 

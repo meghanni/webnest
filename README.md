@@ -25,7 +25,7 @@ Install the generated Debian package with your package installer or `sudo apt in
 
 ## Prototype scope
 
-- Add and remove web apps by name and HTTPS URL.
+- Add and remove web apps by name and URL. HTTPS is required for public sites; HTTP is allowed for local, private, or loopback addresses (e.g. `http://192.168.x.x`, `http://localhost`).
 - Open an app in a separate window with a dedicated persistent Electron session.
 - Give the WebNest manager and each created app a separate Linux desktop identity so each has its own menu and dock icon. Linux starts a small WebNest process for each app to provide that identity.
 - Close an app window to hide it and keep its current page alive for fast reopening; use **Quit** in the tray menu to close all windows and release memory.
